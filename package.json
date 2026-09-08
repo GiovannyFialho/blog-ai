@@ -2,7 +2,9 @@
   "name": "blog-ai",
   "version": "1.0.0",
   "scripts": {
-    "dev": "node --watch src/index.js"
+    "init": "npm install && npm run env:setup",
+    "dev": "node --env-file=.env.local --watch src/index.js",
+    "env:setup": "cp .env.exemple .env.local"
   },
   "license": "ISC",
   "type": "module"

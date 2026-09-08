@@ -1,9 +1,19 @@
 import http from "node:http";
 
+const { API_HOST, API_PORT, API_PROTOCOL } = process.env;
+
+const posts = [];
+
 const server = http.createServer((req, res) => {
   const { url, method } = req;
 
-  const path = url.split("?")[0];
+  const paths = url.split("?").filter(Boolean);
+  const path = paths.at(0) ?? "/";
+
+  if (path === "/posts" && method === "GET") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    return res.end(JSON.stringify({ data: posts }));
+  }
 
   if (path === "/sign-in" && method === "POST") {
     let bodyBuffer = [];
@@ -27,6 +37,9 @@ const server = http.createServer((req, res) => {
   return res.end(JSON.stringify({ message: "Hello World!!" }));
 });
 
-server.listen(8080, () => {
-  console.log("🎲 Server running at http://localhost:8080/");
+server.listen(API_PORT, API_HOST, () => {
+  console.log(
+    `🎲 Server running at ${API_PROTOCOL}://${API_HOST}:${API_PORT}/`,
+  );
+  console.log("💡 Press CTRL+C to stop the server");
 });
