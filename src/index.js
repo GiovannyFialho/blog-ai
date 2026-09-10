@@ -1,20 +1,23 @@
 import http from "node:http";
 
+import { findAllPosts, insertPost } from "./repositories/post-repository.js";
 import { createPostDraft } from "./services/create-post-draft.js";
 
 const { API_HOST, API_PORT, API_PROTOCOL } = process.env;
 
-const posts = [];
-
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   const { url, method } = req;
 
   const paths = url.split("?").filter(Boolean);
   const path = paths.at(0) ?? "/";
 
   if (path === "/posts" && method === "GET") {
+    const posts = await findAllPosts();
+
     res.writeHead(200, { "Content-Type": "application/json" });
-    return res.end(JSON.stringify({ data: posts }));
+    res.end(JSON.stringify({ data: posts }));
+
+    return;
   }
 
   if (path === "/posts/draft" && method === "POST") {
@@ -27,8 +30,8 @@ const server = http.createServer((req, res) => {
         const bodyString = Buffer.concat(bodyBuffer).toString();
         body = JSON.parse(bodyString);
 
-        const post = await createPostDraft(body.idea);
-        posts.push(post);
+        const draft = await createPostDraft(body.idea);
+        const post = await insertPost(draft);
 
         res.writeHead(201, { "Content-Type": "application/json" });
         return res.end(JSON.stringify({ data: post }));

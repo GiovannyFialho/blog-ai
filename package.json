@@ -4,13 +4,22 @@
   "scripts": {
     "init": "npm install && npm run env:setup",
     "dev": "node --env-file=.env.local --watch src/index.js",
-    "env:setup": "cp .env.exemple .env.local"
+    "env:setup": "cp .env.exemple .env.local",
+    "init:setup": "npm run infra:up && npm run migrate:up",
+    "migrate:up": "node --env-file=.env.local node_modules/.bin/postgrator migrate",
+    "migrate:down": "node --env-file=.env.local node_modules/.bin/postgrator migrate 0",
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down"
   },
   "license": "ISC",
   "type": "module",
   "dependencies": {
     "@mastra/core": "^1.65.0",
     "nanoid": "^6.0.1",
+    "pg": "^8.23.0",
     "zod": "^4.6.0"
+  },
+  "devDependencies": {
+    "postgrator-cli": "^10.0.0"
   }
 }
