@@ -9,10 +9,27 @@
     "migrate:up": "node --env-file=.env.local node_modules/.bin/postgrator migrate",
     "migrate:down": "node --env-file=.env.local node_modules/.bin/postgrator migrate 0",
     "infra:up": "docker compose up -d",
-    "infra:down": "docker compose down"
+    "infra:down": "docker compose down",
+    "commit": "node scripts/commit.js",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint --fix .",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "prepare": "lefthook install"
   },
   "license": "ISC",
   "type": "module",
+  "commitlint": {
+    "extends": [
+      "@commitlint/config-conventional"
+    ]
+  },
+  "lint-staged": {
+    "*.{js,mjs,cjs}": [
+      "oxlint --fix",
+      "oxfmt"
+    ]
+  },
   "dependencies": {
     "@mastra/core": "^1.65.0",
     "nanoid": "^6.0.1",
@@ -20,6 +37,12 @@
     "zod": "^4.6.0"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.2.2",
+    "@commitlint/config-conventional": "^21.2.2",
+    "lefthook": "^2.1.12",
+    "lint-staged": "^17.5.1",
+    "oxfmt": "^0.67.0",
+    "oxlint": "^1.82.0",
     "postgrator-cli": "^10.0.0"
   }
 }
