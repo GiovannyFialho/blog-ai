@@ -1,59 +1,115 @@
+import { confirm, input, select } from "@inquirer/prompts";
 import { execFileSync } from "node:child_process";
-import { stdin as input, stdout as output } from "node:process";
-import { createInterface } from "node:readline/promises";
+import { styleText } from "node:util";
 
-const types = [
-  ["feat", "Nova funcionalidade"],
-  ["fix", "Correção de bug"],
-  ["refactor", "Refatoração sem mudança de comportamento"],
-  ["perf", "Melhoria de performance"],
-  ["test", "Adição ou alteração de testes"],
-  ["docs", "Documentação"],
-  ["style", "Formatação ou estilo"],
-  ["build", "Build ou dependências"],
-  ["ci", "CI/CD"],
-  ["chore", "Manutenção geral"],
-  ["revert", "Reverte um commit anterior"],
+const commitTypes = [
+  {
+    value: "feat",
+    name: "feat",
+    description: "New feature",
+  },
+  {
+    value: "fix",
+    name: "fix",
+    description: "Bug fix",
+  },
+  {
+    value: "refactor",
+    name: "refactor",
+    description: "Code refactoring without changing behavior",
+  },
+  {
+    value: "perf",
+    name: "perf",
+    description: "Performance improvement",
+  },
+  {
+    value: "test",
+    name: "test",
+    description: "Add or modify tests",
+  },
+  {
+    value: "docs",
+    name: "docs",
+    description: "Documentation",
+  },
+  {
+    value: "style",
+    name: "style",
+    description: "Formatting or style changes",
+  },
+  {
+    value: "build",
+    name: "build",
+    description: "Build system or dependencies",
+  },
+  {
+    value: "ci",
+    name: "ci",
+    description: "CI/CD changes",
+  },
+  {
+    value: "chore",
+    name: "chore",
+    description: "General maintenance",
+  },
+  {
+    value: "revert",
+    name: "revert",
+    description: "Revert a previous commit",
+  },
 ];
 
-const rl = createInterface({ input, output });
+function styleChoice(text, selected) {
+  if (selected) {
+    return styleText(["cyan", "bold"], text);
+  }
 
-function ask(question) {
-  return rl.question(question);
+  return styleText("gray", text);
 }
 
 try {
-  console.log("\nConventional Commit\n");
+  console.log();
 
-  console.log("Escolha o tipo do commit:\n");
-
-  types.forEach(([type, description], index) => {
-    console.log(`${index + 1}. ${type.padEnd(10)} - ${description}`);
+  const type = await select({
+    message: "What type of commit is this?",
+    choices: commitTypes,
+    theme: {
+      style: {
+        highlight: (text) => styleChoice(text, true),
+        description: (text) => styleText("gray", text),
+      },
+    },
   });
 
-  const typeAnswer = await ask("\nTipo: ");
-  const typeIndex = Number(typeAnswer) - 1;
-  const selectedType = types[typeIndex]?.[0];
+  const scope = await input({
+    message: "What is the scope? (optional)",
+  });
 
-  if (!selectedType) {
-    throw new Error("Tipo de commit inválido.");
-  }
+  const description = await input({
+    message: "What is the description?",
+    validate: (value) => {
+      if (!value.trim()) {
+        return "The commit description cannot be empty.";
+      }
 
-  const scope = (await ask("Escopo (opcional): ")).trim();
-  const description = (await ask("Descrição: ")).trim();
+      return true;
+    },
+  });
 
-  if (!description) {
-    throw new Error("A descrição do commit não pode ser vazia.");
-  }
+  const commitMessage = `${type}${scope.trim() ? `(${scope.trim()})` : ""}: ${description.trim()}`;
 
-  const commitMessage = `${selectedType}${scope ? `(${scope})` : ""}: ${description}`;
+  console.log();
+  console.log(`Commit: ${styleText(["cyan", "bold"], commitMessage)}`);
+  console.log();
 
-  console.log(`\nCommit: ${commitMessage}\n`);
+  const shouldCommit = await confirm({
+    message: "Confirm commit?",
+    default: true,
+  });
 
-  const confirm = await ask("Confirmar? (s/N): ");
-
-  if (confirm.toLowerCase() !== "s") {
-    console.log("\nCommit cancelado.");
+  if (!shouldCommit) {
+    console.log("\nCommit cancelled.");
     process.exitCode = 0;
   } else {
     execFileSync("git", ["commit", "-m", commitMessage], {
@@ -61,8 +117,11 @@ try {
     });
   }
 } catch (error) {
-  console.error(`\nErro: ${error.message}`);
-  process.exitCode = 1;
-} finally {
-  rl.close();
+  if (error.name === "ExitPromptError") {
+    console.log("\nCommit cancelled.");
+    process.exitCode = 0;
+  } else {
+    console.error(`\n${styleText(["red", "bold"], "Error:")} ${error.message}`);
+    process.exitCode = 1;
+  }
 }
