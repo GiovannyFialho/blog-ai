@@ -1,3 +1,249 @@
+# Blog AI
+
+A small Node.js HTTP API that uses Mastra and Google Gemini to turn an idea into a structured blog post draft and stores the result in PostgreSQL.
+
+The current implementation is intentionally lightweight: it uses Node's built-in `http` module, has no web framework, and exposes two endpoints for creating and listing posts.
+
+## Features
+
+- Generate a complete blog post draft from a short idea.
+- Return a title and Markdown content using structured model output.
+- Preserve the language used in the submitted idea.
+- Store generated posts in PostgreSQL.
+- List stored posts ordered by publication date.
+- Run locally with PostgreSQL in Docker Compose.
+
+## Tech stack
+
+- Node.js 24 (`lts/krypton`)
+- Node.js built-in `http` module
+- PostgreSQL 17
+- `pg` for database access
+- Mastra with the `google/gemini-3.5-flash-lite` model
+- Zod for validating generated post content
+- Nano ID for post identifiers
+- Postgrator for database migrations
+- Oxlint and Oxfmt for code quality
+
+## How it works
+
+1. `POST /posts/draft` receives a blog post idea.
+2. The Mastra post writer agent generates a title and a complete Markdown post.
+3. Zod validates the structured model response.
+4. The service adds an ID and creation timestamp, leaving publication, approval, and rejection timestamps empty.
+5. The draft is inserted into PostgreSQL and returned to the client.
+6. `GET /posts` returns all stored posts, including drafts.
+
+The agent is instructed to create an introduction, structured body sections, and a conclusion. It detects the language of the idea and writes the post in that language.
+
+## Requirements
+
+- Node.js 24 or a compatible release
+- Docker and Docker Compose, for the local PostgreSQL instance
+- A Google Generative AI API key
+
+The required Node.js version is recorded in `.nvmrc`:
+
+```bash
+nvm use
+```
+
+## Configuration
+
+Create the local environment file from the example:
+
+```bash
+npm run env:setup
+```
+
+Then edit `.env.local`:
+
+| Variable                       | Description                                    | Example                                              |
+| ------------------------------ | ---------------------------------------------- | ---------------------------------------------------- |
+| `API_HOST`                     | Host used by the HTTP server                   | `127.0.0.1`                                          |
+| `API_PORT`                     | Port used by the HTTP server                   | `8080`                                               |
+| `API_PROTOCOL`                 | Protocol shown in the startup log              | `http`                                               |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | Google Generative AI credential used by Mastra | `your-api-key`                                       |
+| `DATABASE_URL`                 | PostgreSQL connection string                   | `postgresql://postgres:postgres@localhost:5432/blog` |
+
+Do not commit `.env.local` or any other environment file. The repository ignores these files and keeps only `.env.exemple` as a template.
+
+## Local setup
+
+Install dependencies and create the environment file:
+
+```bash
+npm install
+npm run env:setup
+```
+
+Set `GOOGLE_GENERATIVE_AI_API_KEY` and `DATABASE_URL` in `.env.local`, then start PostgreSQL and apply the migrations:
+
+```bash
+npm run infra:up
+npm run migrate:up
+```
+
+Start the API in development mode with Node's file watcher:
+
+```bash
+npm run dev
+```
+
+The server URL is printed when it starts. With the example configuration, it is `http://127.0.0.1:8080`.
+
+To stop the local database container:
+
+```bash
+npm run infra:down
+```
+
+The `init` script combines dependency installation and environment setup. The `init:setup` script starts the database and applies migrations after `.env.local` exists:
+
+```bash
+npm run init
+npm run init:setup
+```
+
+## API
+
+All responses use `application/json`.
+
+### `GET /posts`
+
+Returns every post stored in the database, including drafts. Results are ordered by `published_at DESC`.
+
+```bash
+curl http://127.0.0.1:8080/posts
+```
+
+Successful response:
+
+```json
+{
+  "data": [
+    {
+      "id": "V1StGXR8_Z5jdHi6B-myT",
+      "title": "A generated title",
+      "content": "# A Markdown post",
+      "published_at": null,
+      "created_at": "2026-09-13T12:00:00.000Z",
+      "approved_at": null,
+      "rejected_at": null
+    }
+  ]
+}
+```
+
+### `POST /posts/draft`
+
+Generates and stores a draft from an idea.
+
+Request:
+
+```bash
+curl -X POST http://127.0.0.1:8080/posts/draft \
+  -H "Content-Type: application/json" \
+  -d '{"idea":"How to build fast APIs with Node.js"}'
+```
+
+The request body is expected to contain an `idea` property:
+
+```json
+{
+  "idea": "How to build fast APIs with Node.js"
+}
+```
+
+Successful responses use status `201` and return the inserted post in a `data` property. Generation, parsing, validation, and persistence errors currently return status `500` with an error message. The endpoint does not currently implement a dedicated client-side validation response.
+
+## Database
+
+The local Docker Compose setup runs PostgreSQL 17 on port `5432` with these default values:
+
+- Database: `blog`
+- User: `postgres`
+- Password: `postgres`
+
+The `posts` table contains:
+
+| Column         | Type          | Description                                        |
+| -------------- | ------------- | -------------------------------------------------- |
+| `id`           | `VARCHAR(21)` | Nano ID primary key                                |
+| `title`        | `TEXT`        | Generated post title                               |
+| `content`      | `TEXT`        | Generated Markdown content                         |
+| `published_at` | `TIMESTAMPTZ` | Publication timestamp, currently `NULL` for drafts |
+| `created_at`   | `TIMESTAMPTZ` | Creation timestamp                                 |
+| `approved_at`  | `TIMESTAMPTZ` | Approval timestamp, currently `NULL`               |
+| `rejected_at`  | `TIMESTAMPTZ` | Rejection timestamp, currently `NULL`              |
+
+Apply or roll back migrations with:
+
+```bash
+npm run migrate:up
+npm run migrate:down
+```
+
+`migrate:down` rolls the database back to migration version `0` and removes the `posts` table.
+
+## Available scripts
+
+| Command                | Purpose                                      |
+| ---------------------- | -------------------------------------------- |
+| `npm run init`         | Install dependencies and create `.env.local` |
+| `npm run dev`          | Start the API with Node's watch mode         |
+| `npm run env:setup`    | Copy `.env.exemple` to `.env.local`          |
+| `npm run init:setup`   | Start PostgreSQL and apply migrations        |
+| `npm run infra:up`     | Start PostgreSQL with Docker Compose         |
+| `npm run infra:down`   | Stop the PostgreSQL container                |
+| `npm run migrate:up`   | Apply pending migrations                     |
+| `npm run migrate:down` | Roll back all migrations                     |
+| `npm run lint`         | Run Oxlint                                   |
+| `npm run lint:fix`     | Fix supported Oxlint issues                  |
+| `npm run format`       | Format the repository with Oxfmt             |
+| `npm run format:check` | Check formatting without changing files      |
+| `npm run commit`       | Create a conventional commit interactively   |
+
+## Project structure
+
+```text
+.
+├── src/
+│   ├── index.js                         # HTTP server and route handling
+│   ├── database/
+│   │   ├── pool.js                      # PostgreSQL connection pool
+│   │   └── migrations/                  # Postgrator SQL migrations
+│   ├── mastra/
+│   │   ├── index.js                     # Mastra instance
+│   │   └── agents/
+│   │       └── post-writer-agent.js     # Blog post generation instructions
+│   ├── repositories/
+│   │   └── post-repository.js           # Post queries and row mapping
+│   └── services/
+│       └── create-post-draft.js         # Draft generation and validation
+├── scripts/
+│   └── commit.js                        # Conventional commit helper
+├── docker-compose.yml                   # Local PostgreSQL service
+├── .env.exemple                         # Environment template
+├── .postgratorrc.cjs                    # Migration configuration
+└── package.json
+```
+
+## Current scope
+
+This repository currently provides draft generation and listing only. There are no implemented routes for fetching a single post, approving or publishing a post, rejecting a post, authenticating requests, or exposing a production Docker image. The timestamp columns for those future workflows already exist in the database schema.
+
+## Development hooks
+
+Lefthook installs two Git hooks:
+
+- `pre-commit` runs lint-staged, which lints and formats changed JavaScript files.
+- `commit-msg` validates commit messages with Commitlint and the Conventional Commits rules.
+
+## License
+
+ISC
+
 # Blog IA — Node.js
 
 API HTTP para um blog com geração de posts assistida por IA. A aplicação recebe uma ideia, usa um agente (Mastra + OpenAI) para redigir título e conteúdo em Markdown, persiste rascunhos no PostgreSQL e expõe endpoints para aprovar, rejeitar e listar publicações.
