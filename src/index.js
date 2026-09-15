@@ -1,6 +1,10 @@
 import http from "node:http";
 
-import { findAllPosts, insertPost } from "./repositories/post-repository.js";
+import {
+  findAllPosts,
+  findPostById,
+  insertPost,
+} from "./repositories/post-repository.js";
 import { createPostDraft } from "./services/create-post-draft.js";
 
 const { API_HOST, API_PORT, API_PROTOCOL } = process.env;
@@ -16,6 +20,17 @@ const server = http.createServer(async (req, res) => {
 
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ data: posts }));
+
+    return;
+  }
+
+  const postByMatch = path.match(/^\/posts\/([a-zA-Z0-9-]+)$/);
+  if (postByMatch && method === "GET") {
+    const postId = postByMatch[1];
+    const post = await findPostById(postId);
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ data: post }));
 
     return;
   }
