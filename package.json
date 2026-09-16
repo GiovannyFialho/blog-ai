@@ -10,6 +10,8 @@
     "docker:build": "docker build -t blog-ia-nodejs:latest .",
     "docker:up": "docker compose up --build",
     "docker:down": "docker compose down",
+    "infra:up": "docker compose up -d postgres",
+    "infra:down": "docker compose stop postgres",
     "migrate:up": "node --env-file=.env.local node_modules/.bin/postgrator migrate",
     "migrate:down": "node --env-file=.env.local node_modules/.bin/postgrator migrate 0",
     "commit": "node scripts/commit.js",
