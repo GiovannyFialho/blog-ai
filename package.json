@@ -6,6 +6,7 @@
   "scripts": {
     "init": "npm install && npm run env:setup",
     "init:setup": "npm run docker:up && npm run migrate:up",
+    "env:setup": "cp -n .env.example .env.local && cp -n .env.example .env.test",
     "dev": "node --env-file=.env.local --watch src/index.js",
     "docker:build": "docker build -t blog-ia-nodejs:latest .",
     "docker:up": "docker compose up --build",
