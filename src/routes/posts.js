@@ -10,7 +10,9 @@ import {
 } from "../repositories/post-repository.js";
 import { createPostDraft } from "../services/create-post-draft.js";
 
-export function registerPostRoutes(router) {
+export function registerPostRoutes(router, options = {}) {
+  const createDraft = options.createPostDraft ?? createPostDraft;
+
   router.get("/posts", async (req, res) => {
     const { searchParams } = new URL(req.url, "http://localhost");
 
@@ -80,7 +82,7 @@ export function registerPostRoutes(router) {
   router.post("/posts/draft", async (req, res) => {
     try {
       const body = await readJsonBody(req);
-      const draft = await createPostDraft(body.idea);
+      const draft = await createDraft(body.idea);
       const post = await insertPost(draft);
 
       res.writeHead(201, { "Content-Type": "application/json" });
